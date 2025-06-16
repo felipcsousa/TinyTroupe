@@ -1208,6 +1208,44 @@ class TinyPerson(JsonSerializableRegistry):
         else:
             return None
 
+    def _calculate_interaction_urgency(self, observation: str,
+                                        relevance_threshold: float = 0.5,
+                                        mention_urgency: float = 9.0) -> float:
+        """Calcula a urgência de interação dado uma observação."""
+
+        try:
+            if self.name.lower() in observation.lower():
+                return float(mention_urgency)
+
+            def _cosine_similarity(v1, v2):
+                import math
+                dot = sum(a * b for a, b in zip(v1, v2))
+                norm1 = math.sqrt(sum(a * a for a in v1))
+                norm2 = math.sqrt(sum(b * b for b in v2))
+                if norm1 == 0 or norm2 == 0:
+                    return 0.0
+                return dot / (norm1 * norm2)
+
+            status_text = getattr(self, "status", json.dumps(self._mental_state))
+            status_emb = openai_utils.client().get_embedding(status_text)
+            obs_emb = openai_utils.client().get_embedding(observation)
+            similarity = _cosine_similarity(status_emb, obs_emb)
+            if similarity < relevance_threshold:
+                return 1.0
+
+            llm_request = openai_utils.LLMRequest(
+                system_prompt="Você analisa uma observação e estima a urgência de interação (1 a 10).",
+                user_prompt=f"Observação: {observation}\nResponda somente com um número entre 1 e 10.",
+                output_type=float,
+                temperature=0.0,
+                max_tokens=5,
+            )
+            return float(llm_request.call())
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Erro ao calcular urgência: {e}")
+            return 2.0
+
     ###########################################################
     # IO
     ###########################################################

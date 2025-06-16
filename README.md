@@ -43,6 +43,8 @@ We are releasing *TinyTroupe* at a relatively early stage, with considerable wor
 
 
 ## LATEST NEWS
+**[2025-02-02] Pequena atualização:**
+  - Nova heurística de urgência de interação. `TinyWorld` só aciona agentes quando a urgência é maior que `URGENCY_TO_ACT_THRESHOLD`.
 **[2025-01-29] Release 0.4.0 with various improvements. Some highlights:**
   - Personas have deeper specifications now, including  personality traits, preferences, beliefs, and more. It is likely we'll further expand this in the future. 
   - `TinyPerson`s can now be defined as JSON files as well, and loaded via the `TinyPerson.load_specification()`, for greater convenience. After loading the JSON file, you can still modify the agent programmatically. See the [examples/agents/](./examples/agents/) folder for examples.

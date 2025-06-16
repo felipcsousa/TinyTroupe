@@ -6,6 +6,7 @@ import textwrap
 
 from tinytroupe.agent import *
 from tinytroupe.utils import name_or_empty, pretty_datetime
+import json
 import tinytroupe.control as control
 from tinytroupe.control import transactional
 from tinytroupe import utils
@@ -25,6 +26,9 @@ class TinyWorld:
 
     # Whether to display environments communications or not, for all environments. 
     communication_display = True
+
+    # Urgência mínima para que um agente aja
+    URGENCY_TO_ACT_THRESHOLD = 5.0
 
     def __init__(self, name: str="A TinyWorld", agents=[], 
                  initial_datetime=datetime.now(),
@@ -100,10 +104,20 @@ class TinyWorld:
         agents_actions = {}
         for agent in self.agents:
             logger.debug(f"[{self.name}] Agent {name_or_empty(agent)} is acting.")
-            actions = agent.act(return_actions=True)
+
+            last_mem = agent.episodic_memory.retrieve_last(1, include_omission_info=False)
+            observation = json.dumps(last_mem[-1]["content"]) if last_mem else ""
+            urgency = agent._calculate_interaction_urgency(observation)
+
+            if urgency >= TinyWorld.URGENCY_TO_ACT_THRESHOLD:
+                actions = agent.act(return_actions=True)
+            else:
+                actions = []
+
             agents_actions[agent.name] = actions
 
-            self._handle_actions(agent, agent.pop_latest_actions())
+            if actions:
+                self._handle_actions(agent, agent.pop_latest_actions())
         
         return agents_actions
         
