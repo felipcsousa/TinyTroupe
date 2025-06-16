@@ -105,7 +105,7 @@ class TinyWorld:
             logger.debug(f"[{self.name}] Agent {name_or_empty(agent)} is acting.")
 
             observation = ""
-            last_msgs = agent.episodic_memory.retrieve_last(1, include_omission_info=False)
+            last_msgs = agent.episodic_memory.retrieve(last_n=1, include_omission_info=False)
             if (last_msgs and 
                 len(last_msgs) > 0 and 
                 "content" in last_msgs[0] and 
