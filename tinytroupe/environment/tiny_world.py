@@ -106,7 +106,11 @@ class TinyWorld:
 
             observation = ""
             last_msgs = agent.episodic_memory.retrieve_last(1, include_omission_info=False)
-            if last_msgs and "stimuli" in last_msgs[0]["content"]:
+            if (last_msgs and 
+                len(last_msgs) > 0 and 
+                "content" in last_msgs[0] and 
+                "stimuli" in last_msgs[0]["content"] and 
+                len(last_msgs[0]["content"]["stimuli"]) > 0):
                 observation = last_msgs[0]["content"]["stimuli"][0]["content"]
 
             urgency = agent._calculate_interaction_urgency(observation)
