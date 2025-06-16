@@ -12,6 +12,7 @@ import json
 import copy
 import textwrap  # to dedent strings
 import chevron  # to parse Mustache templates
+import re  # for word boundary matching
 from typing import Any
 from rich import print
 
@@ -829,33 +830,58 @@ class TinyPerson(JsonSerializableRegistry):
         self.reset_prompt()
 
 
-    def _calculate_interaction_urgency(self, observation: str, relevance_threshold: float = 0.5, mention_urgency: float = 9.0) -> float:
+    def _calculate_interaction_urgency(self, observation: str, relevance_threshold: float = 0.5, mention_urgency: float = 9.0, high_relevance_threshold: float = 0.7) -> float:
         """Avalia a urgência de interação com base em heurísticas simples."""
-        if self.name.lower() in observation.lower():
+        # Fix 1: Use word boundary matching to avoid false positives
+        # Instead of simple substring matching, use regex with word boundaries
+        name_pattern = r'\b' + re.escape(self.name.lower()) + r'\b'
+        if re.search(name_pattern, observation.lower()):
             return mention_urgency
 
         status_text = ""
         try:
             status_parts = []
+            
+            # Fix 2: Handle context as dictionary (from change_context method)
             context = self._mental_state.get("context")
-            if isinstance(context, list):
+            if isinstance(context, dict):
+                # Extract values from context dictionary
+                if "description" in context:
+                    # Handle case where context has "description" keys
+                    context_values = list(context.values())
+                else:
+                    # Handle general dictionary case
+                    context_values = [str(v) for v in context.values() if v]
+                status_parts.extend(context_values)
+            elif isinstance(context, list):
                 status_parts.extend(context)
+            
             attention = self._mental_state.get("attention")
             if attention:
                 status_parts.append(attention)
+                
             goals = self._mental_state.get("goals")
             if isinstance(goals, list):
                 status_parts.extend(goals)
-            status_text = " ".join(status_parts)
+                
+            status_text = " ".join(str(part) for part in status_parts if part)
 
             status_emb = semantics.get_embedding(status_text)
             obs_emb = semantics.get_embedding(observation)
             relevance = semantics.cosine_similarity(status_emb, obs_emb)
+            
+            # Fix 3: Return early for both low AND high relevance to avoid unnecessary LLM calls
             if relevance < relevance_threshold:
                 return 1.0
+            elif relevance >= high_relevance_threshold:
+                # High relevance indicates urgent response needed - avoid expensive LLM call
+                return 8.0
+                
         except Exception as e:
             logger.debug(f"[{self.name}] Falha no cálculo de relevância: {e}")
+            return 2.0
 
+        # Only use expensive LLM for ambiguous cases (medium relevance)
         prompt = (
             "You are an AI model that determines how urgently an agent should respond."\
             "\nRate from 1 (ignore) to 10 (reply immediately).\n\n"\
