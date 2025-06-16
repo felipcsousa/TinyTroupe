@@ -68,3 +68,30 @@ def restructure_as_observed_vs_expected(description) -> str:
         str: The restructured description.
     """
     # llm decorator will handle the body of this function
+
+
+import math
+import tinytroupe.openai_utils as openai_utils
+
+def get_embedding(text: str):
+    """Obtém o embedding do texto usando o modelo configurado."""
+    return openai_utils.client().get_embedding(text)
+
+
+def cosine_similarity(vec1, vec2):
+    """Calcula a similaridade cosseno entre dois vetores."""
+    if len(vec1) != len(vec2):
+        raise ValueError("Vectors must have the same dimension")
+    dot = sum(a * b for a, b in zip(vec1, vec2))
+    norm1 = math.sqrt(sum(a * a for a in vec1))
+    norm2 = math.sqrt(sum(b * b for b in vec2))
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+    return dot / (norm1 * norm2)
+
+__all__ = [
+    "rephrase",
+    "restructure_as_observed_vs_expected",
+    "get_embedding",
+    "cosine_similarity",
+]

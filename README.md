@@ -470,6 +470,16 @@ This is enabled preferably in the `config.ini` file, and alternatively via the `
 
 LLM API caching, when enabled, works at a lower and simpler level than simulation state caching. Here, what happens is very straightforward: every LLM call is kept in a map from the input to the generated output; when a new call comes and is identical to a previous one, the cached value is returned.
 
+### Urgência de Interação
+
+Antes que um agente atue em um passo do `TinyWorld`, ele avalia o quão urgente é responder à observação mais recente. A função `_calculate_interaction_urgency` utiliza heurísticas baratas e só recorre ao LLM em casos ambíguos, reduzindo custos.
+Se o resultado for menor que `URGENCY_TO_ACT_THRESHOLD`, configurável em `config.ini`, o agente não executa ações naquele passo.
+
+```
+[Simulation]
+URGENCY_TO_ACT_THRESHOLD=5.0
+```
+
 ### Config.ini
 
 The `config.ini` file contains various parameters that can be used to customize the behavior of the library, such as model parameters and logging level. Please pay special attention to `API_TYPE` parameter, which defines whether you are using the Azure OpenAI Service or the OpenAI API. We provide an example of a `config.ini` file, [./examples/config.ini](./examples/config.ini), which you can use as a template for your own, or just modify to run the examples.

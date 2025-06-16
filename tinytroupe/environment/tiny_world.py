@@ -6,14 +6,17 @@ import textwrap
 
 from tinytroupe.agent import *
 from tinytroupe.utils import name_or_empty, pretty_datetime
+from tinytroupe import utils
 import tinytroupe.control as control
 from tinytroupe.control import transactional
-from tinytroupe import utils
  
 from rich.console import Console
 
 from typing import Any, TypeVar, Union
 AgentOrWorld = Union["TinyPerson", "TinyWorld"]
+
+config = utils.read_config_file()
+URGENCY_TO_ACT_THRESHOLD = float(config["Simulation"].get("URGENCY_TO_ACT_THRESHOLD", "5.0"))
 
 class TinyWorld:
     """
@@ -100,6 +103,23 @@ class TinyWorld:
         agents_actions = {}
         for agent in self.agents:
             logger.debug(f"[{self.name}] Agent {name_or_empty(agent)} is acting.")
+
+            observation = ""
+            last_msgs = agent.episodic_memory.retrieve_last(1, include_omission_info=False)
+            if last_msgs and "stimuli" in last_msgs[0]["content"]:
+                observation = last_msgs[0]["content"]["stimuli"][0]["content"]
+
+            urgency = agent._calculate_interaction_urgency(observation)
+            if urgency < URGENCY_TO_ACT_THRESHOLD:
+                logger.debug(
+                    f"[{self.name}] Urgência de {agent.name} ({urgency:.1f}) é baixa. Ignorando."
+                )
+                agents_actions[agent.name] = []
+                continue
+
+            logger.debug(
+                f"[{self.name}] Urgência de {agent.name} ({urgency:.1f}) é alta. Agindo."
+            )
             actions = agent.act(return_actions=True)
             agents_actions[agent.name] = actions
 

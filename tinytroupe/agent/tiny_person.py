@@ -3,6 +3,7 @@ from tinytroupe.agent.memory import EpisodicMemory, SemanticMemory
 import tinytroupe.openai_utils as openai_utils
 from tinytroupe.utils import JsonSerializableRegistry, repeat_on_error, name_or_empty
 import tinytroupe.utils as utils
+from tinytroupe.utils import semantics
 from tinytroupe.control import transactional, current_simulation
 
 
@@ -826,7 +827,53 @@ class TinyPerson(JsonSerializableRegistry):
         self._mental_state["memory_context"] = current_memory_context
 
         self.reset_prompt()
-        
+
+
+    def _calculate_interaction_urgency(self, observation: str, relevance_threshold: float = 0.5, mention_urgency: float = 9.0) -> float:
+        """Avalia a urgência de interação com base em heurísticas simples."""
+        if self.name.lower() in observation.lower():
+            return mention_urgency
+
+        status_text = ""
+        try:
+            status_parts = []
+            context = self._mental_state.get("context")
+            if isinstance(context, list):
+                status_parts.extend(context)
+            attention = self._mental_state.get("attention")
+            if attention:
+                status_parts.append(attention)
+            goals = self._mental_state.get("goals")
+            if isinstance(goals, list):
+                status_parts.extend(goals)
+            status_text = " ".join(status_parts)
+
+            status_emb = semantics.get_embedding(status_text)
+            obs_emb = semantics.get_embedding(observation)
+            relevance = semantics.cosine_similarity(status_emb, obs_emb)
+            if relevance < relevance_threshold:
+                return 1.0
+        except Exception as e:
+            logger.debug(f"[{self.name}] Falha no cálculo de relevância: {e}")
+
+        prompt = (
+            "You are an AI model that determines how urgently an agent should respond."\
+            "\nRate from 1 (ignore) to 10 (reply immediately).\n\n"\
+            f"Agent context: {status_text}\n"\
+            f"Observation: \"{observation}\"\n\n"\
+            "Urgency (1-10):"
+        )
+        try:
+            urgency = openai_utils.LLMRequest(
+                system_prompt="You evaluate urgency.",
+                user_prompt=prompt,
+                output_type=float,
+            ).call()
+            return max(1.0, min(10.0, float(urgency)))
+        except Exception as e:
+            logger.error(f"[{self.name}] Erro ao avaliar urgência: {e}")
+            return 2.0
+
 
     ###########################################################
     # Memory management
